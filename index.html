@@ -1,0 +1,164 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101713">
+  <title>Lucky Spin — Demo</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 22px 16px;
+      background: #101713; color: #f4f7f4;
+      font-family: system-ui, sans-serif;
+    }
+    main { max-width: 430px; margin: auto; }
+    .panel {
+      background: #1b2820; border: 1px solid #344638;
+      border-radius: 20px; padding: 20px; margin: 14px 0;
+    }
+    .muted { color: #a9b8ac; font-size: 13px; }
+    .balance { font-size: 32px; font-weight: 800; color: #86efac; }
+    .slots {
+      display: flex; justify-content: center; gap: 10px;
+      font-size: 48px; padding: 22px 0;
+    }
+    .reel {
+      background: #f4f7f4; color: #18231b;
+      border-radius: 14px; width: 82px; height: 86px;
+      display: grid; place-items: center;
+    }
+    button {
+      border: 0; border-radius: 12px; padding: 14px;
+      font-weight: 750; font-size: 15px; cursor: pointer;
+      width: 100%; margin-top: 10px;
+    }
+    .primary { background: #86efac; color: #102016; }
+    .secondary { background: #314538; color: white; }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    #message { min-height: 24px; line-height: 1.5; }
+    footer { padding: 8px 2px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="muted">WIRTUALNA GRA • WERSJA DEMO</div>
+    <h1>🍀 Lucky Spin</h1>
+    <p class="muted">Zakręć bębnami i sprawdź swoje szczęście.</p>
+  </header>
+
+  <section class="panel">
+    <div class="muted">TWOJE WIRTUALNE MONETY</div>
+    <div class="balance" id="balance">1000</div>
+    <div class="muted">Monety nie mają wartości pieniężnej.</div>
+  </section>
+
+  <section class="panel">
+    <h2>🎰 Automaty</h2>
+    <div class="slots" aria-label="Wynik losowania">
+      <div class="reel" id="r1">🍒</div>
+      <div class="reel" id="r2">⭐</div>
+      <div class="reel" id="r3">🍀</div>
+    </div>
+    <p class="muted">Stawka demonstracyjna: 10 monet</p>
+    <button class="primary" id="spin">ZAKRĘĆ • 10</button>
+    <p id="message" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel">
+    <h2>🎁 Bonus dzienny</h2>
+    <p>Odbierz 100 wirtualnych monet do gry demonstracyjnej.</p>
+    <button class="secondary" id="bonus">ODBIERZ BONUS</button>
+    <p class="muted" id="bonusStatus"></p>
+  </section>
+
+  <footer class="muted">
+    To wyłącznie demonstracja. Brak wpłat, wypłat,
+    nagród i wymiany monet na pieniądze.
+  </footer>
+</main>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  tg?.ready();
+  tg?.expand();
+
+  // Wyłącznie lokalny zapis demonstracyjny.
+  // Dane można wyczyścić lub zmienić w przeglądarce.
+  const KEY = "lucky-spin-demo-v1";
+  const today = () => new Date().toLocaleDateString("sv-SE");
+
+  function loadState() {
+    try {
+      const s = JSON.parse(localStorage.getItem(KEY));
+      if (s && Number.isInteger(s.balance) && s.balance >= 0) {
+        return s;
+      }
+    } catch (_) {}
+    return { balance: 1000, lastBonus: "" };
+  }
+
+  let state = loadState();
+  const symbols = ["🍒", "🍋", "⭐", "🍀", "🔔", "💎"];
+  const $ = id => document.getElementById(id);
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    render();
+  }
+
+  function render() {
+    $("balance").textContent = state.balance.toLocaleString("pl-PL");
+    const claimed = state.lastBonus === today();
+    $("bonus").disabled = claimed;
+    $("bonusStatus").textContent = claimed
+      ? "Bonus na dziś został już odebrany w tej przeglądarce."
+      : "Bonus jest dostępny w tej demonstracji.";
+    $("spin").disabled = state.balance < 10;
+  }
+
+  $("spin").addEventListener("click", () => {
+    if (state.balance < 10) {
+      $("message").textContent = "Za mało monet. Demo nie ma płatnych doładowań.";
+      return;
+    }
+
+    state.balance -= 10;
+    const result = [1, 2, 3].map(() =>
+      symbols[Math.floor(Math.random() * symbols.length)]
+    );
+
+    ["r1", "r2", "r3"].forEach((id, i) => {
+      $(id).textContent = result[i];
+    });
+
+    if (result[0] === result[1] && result[1] === result[2]) {
+      state.balance += 50;
+      $("message").textContent = "Trzy takie same symbole! +50 monet demo.";
+    } else if (
+      result[0] === result[1] || result[1] === result[2] ||
+      result[0] === result[2]
+    ) {
+      state.balance += 15;
+      $("message").textContent = "Para symboli! +15 monet demo.";
+    } else {
+      $("message").textContent = "Tym razem bez wygranej. Spróbuj ponownie.";
+    }
+    save();
+  });
+
+  $("bonus").addEventListener("click", () => {
+    if (state.lastBonus === today()) return;
+    state.balance += 100;
+    state.lastBonus = today();
+    $("message").textContent = "Odebrano 100 wirtualnych monet demo.";
+    save();
+  });
+
+  render();
+</script>
+</body>
+</html>
